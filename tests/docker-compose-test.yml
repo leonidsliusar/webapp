@@ -1,0 +1,7 @@
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:6-jammy
+    container_name: storage_test
+    ports:
+      - '27018:27017'
