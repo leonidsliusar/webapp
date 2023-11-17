@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, date
 from enum import Enum
 from typing import Optional, Union
@@ -100,6 +101,17 @@ class PropsModel(BaseModel):
     video_link: list[Optional[str]] = []
     created_at: datetime = datetime.today().replace(second=0, microsecond=0)
     upd_at: datetime = datetime.today().replace(second=0, microsecond=0)
+
+    def serialize_for_task(self) -> str:
+        obj_map = {
+            'id': self.id,
+            'title': self.de.title,
+            'description': self.de.description,
+            'img_link': self.img_link,
+            'region': self.property.region,
+            'price': self.property.price
+        }
+        return json.dumps(obj_map)
 
 
 class Admin(BaseModel):

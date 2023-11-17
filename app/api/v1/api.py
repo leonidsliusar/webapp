@@ -1,8 +1,7 @@
 from typing import Annotated, List, Union, Optional
-from fastapi import APIRouter, Depends, Cookie, Response, UploadFile, HTTPException, Form, Body, File, Query
+from fastapi import APIRouter, Depends, Cookie, Response, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from starlette import status
 
 from api.dependencies import get_prop_db, get_admin_db, authenticate, create_access_token, get_current_user, \
     create_refresh_token, change_pass
@@ -11,6 +10,8 @@ from core.models import PropsModel, Admin, FilterObj
 from core.settings import settings
 from utils.file_update import upload_file, remove_file, upload_project, discard_project, get_projects
 from utils.query_format import serialize_query
+
+from app.producer import task_manager
 
 age = settings.REFRESH_TOKEN_EXPIRE_MINUTES
 app = APIRouter(prefix='/api')
@@ -85,17 +86,23 @@ async def fetch_prop(obj: str, manager: PropsManager = Depends(get_prop_db)):
     return await manager.retrieve_prop(obj)
 
 
+@app.get('/props/exists/{obj}')
+async def check_exists(obj: str, manager: PropsManager = Depends(get_prop_db)):
+    if await manager.check_exist(obj):
+        raise HTTPException(status_code=409, detail='Already exists')
+
+
 @admin.post('/props', description='create new prop in admin panel')
-async def create_prop(props: PropsModel, manager: PropsManager = Depends(get_prop_db),
-                      user: dict = Depends(get_current_user)):
-    await manager.add_prop(props)
-    return props.id
+async def create_prop(props_obj: PropsModel, manager: PropsManager = Depends(get_prop_db),
+                      user: dict = Depends(get_current_user), task: None = Depends(task_manager.produce_new_object)):
+    await manager.add_prop(props_obj)
+    return props_obj.id
 
 
 @admin.put('/props', description='update prop in admin panel')
-async def patch_prop(prop_obj: PropsModel, manager: PropsManager = Depends(get_prop_db),
-                     user: dict = Depends(get_current_user)):
-    await manager.update_prop(prop_obj)
+async def patch_prop(props_obj: PropsModel, manager: PropsManager = Depends(get_prop_db),
+                     user: dict = Depends(get_current_user), task: None = Depends(task_manager.produce_upd_object)):
+    await manager.update_prop(props_obj)
 
 
 @admin.delete('/props/{obj}')

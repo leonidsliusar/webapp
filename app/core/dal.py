@@ -12,10 +12,17 @@ class PropsManager:
         self._collection: AsyncIOMotorCollection = db_collection
         self._dict_collection: AsyncIOMotorCollection = db_dict_map
 
-    async def retrieve_all_props(self, pagination: Optional[dict] = None, filter_map: Optional[dict] = None) -> dict[str, int|list]:
+    async def check_exist(self, obj_id: str) -> dict:
+        document = await self._collection.find_one(filter={'_id': obj_id}, projection={'_id': 1})
+        return document
+
+    async def retrieve_all_props(self, pagination: Optional[dict] = None,
+                                 filter_map: Optional[dict] = None) -> dict[str, int | list]:
         filter_map = filter_map if filter_map else {}
         qnt = await self._collection.count_documents(filter_map)
-        cursor = self._collection.find(filter_map)
+        cursor = self._collection.find(filter_map, projection={
+            '_id': 1, 'en.title': 1, 'de.title': 1, 'ru.title': 1, 'fr.title': 1, 'tr.title': 1, 'property.price': 1,
+            'property.region': 1, 'img_link': 1})
         if pagination:
             if 'limit' in pagination:
                 limit = pagination.get('limit')
@@ -79,7 +86,8 @@ class PropsManager:
 
     async def update_prop(self, props: PropsModel) -> None:
         props.property.serialize_completion()
-        await self._collection.update_one(filter={'_id': props.id}, update={'$set': props.model_dump(by_alias=True, exclude_none=True)})
+        await self._collection.update_one(filter={'_id': props.id},
+                                          update={'$set': props.model_dump(by_alias=True, exclude_none=True)})
 
     async def update_file(self, props_id: str, file_map: dict) -> None:
         await self._collection.update_one(filter={'_id': props_id}, update={'$set': file_map})
